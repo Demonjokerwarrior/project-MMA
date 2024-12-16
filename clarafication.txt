@@ -1,0 +1,123 @@
+Thanks for the clarification! Since you're using Kali Linux, we can refine the troubleshooting steps, keeping in mind that Kali might have specific configurations related to permissions, SELinux, or AppArmor, although SELinux is typically disabled by default in Kali.
+
+Let's go through the steps once more, with particular focus on Kali's security model.
+
+### 1. **Verify Directory Permissions and Ownership**
+
+Ensure that the `restricted_user` has proper permissions to access the folder `/home/d4athdeamon/Documents/MMA/programs/secure_folder`.
+
+```bash
+# Set the folder ownership to the restricted user
+sudo chown restricted_user:restricted_user /home/d4athdeamon/Documents/MMA/programs/secure_folder
+
+# Ensure the user has read, write, and execute permissions on the folder
+sudo chmod 700 /home/d4athdeamon/Documents/MMA/programs/secure_folder
+```
+
+This will ensure that the folder is owned by the restricted user and has the correct permissions for accessing it.
+
+### 2. **Check Parent Directory Permissions**
+
+In Kali Linux, access to a directory is also governed by permissions of its parent directories. If any parent directory doesn't have the proper "execute" permission (`+x`), the restricted user won’t be able to access any subdirectories.
+
+You need to ensure that all parent directories leading up to `secure_folder` are accessible. Run the following commands to verify and set the correct permissions on each directory:
+
+```bash
+sudo chmod +x /home
+sudo chmod +x /home/d4athdeamon
+sudo chmod +x /home/d4athdeamon/Documents
+sudo chmod +x /home/d4athdeamon/Documents/MMA
+sudo chmod +x /home/d4athdeamon/Documents/MMA/programs
+```
+
+This ensures that the `restricted_user` has the right to traverse into the folder.
+
+### 3. **Verify User's Home Directory and Shell in `/etc/passwd`**
+
+Kali Linux uses `/etc/passwd` for user configurations, including their home directory and shell. To ensure that the restricted user is correctly configured to use the restricted shell, check the `/etc/passwd` entry for `restricted_user`:
+
+```bash
+sudo nano /etc/passwd
+```
+
+Look for the `restricted_user` entry. It should look something like this:
+
+```
+restricted_user:x:1001:1001::/home/d4athdeamon/Documents/MMA/programs/secure_folder:/usr/local/bin/restricted_shell.sh
+```
+
+This means that `restricted_user`'s home directory is `/home/d4athdeamon/Documents/MMA/programs/secure_folder` and the shell is `/usr/local/bin/restricted_shell.sh`.
+
+### 4. **Check AppArmor or Other Security Configurations**
+
+Kali Linux doesn't have SELinux enabled by default, but it uses **AppArmor** for access control. AppArmor can restrict access to directories, so check if it's affecting the restricted shell. To check if AppArmor is running:
+
+```bash
+sudo apparmor_status
+```
+
+If AppArmor is enabled, you might need to check if it's enforcing any restrictions on the shell or folder access. For testing, you can temporarily disable AppArmor:
+
+```bash
+sudo systemctl stop apparmor
+```
+
+To start AppArmor again after testing:
+
+```bash
+sudo systemctl start apparmor
+```
+
+### 5. **Testing Folder Access as the Restricted User**
+
+Switch to the restricted user and test if they can access the folder:
+
+```bash
+sudo su - restricted_user
+cd /home/d4athdeamon/Documents/MMA/programs/secure_folder
+```
+
+If you get a `Permission denied` error, double-check the directory ownership and permissions again.
+
+### 6. **Check `restricted_shell.sh` Permissions**
+
+Ensure that the `restricted_shell.sh` script itself is executable by the restricted user:
+
+```bash
+sudo chmod +x /usr/local/bin/restricted_shell.sh
+```
+
+Additionally, verify that the script is correctly set up to start the shell. If it's a simple script, it might look like this:
+
+```bash
+#!/bin/bash
+cd /home/d4athdeamon/Documents/MMA/programs/secure_folder || exit
+exec /bin/bash  # or your restricted shell, e.g., /bin/rbash
+```
+
+Make sure the script doesn’t have errors in it, and the shell (`/bin/bash` or `/bin/rbash`) is available.
+
+### 7. **Final Test**
+
+After following the above steps, test again by switching to the restricted user:
+
+```bash
+sudo su - restricted_user
+```
+
+Then, try accessing the folder:
+
+```bash
+cd /home/d4athdeamon/Documents/MMA/programs/secure_folder
+```
+
+This should now work without permission errors.
+
+### Summary:
+
+1. **Permissions**: Ensure that the folder and all its parent directories have the correct permissions.
+2. **Ownership**: Make sure the `restricted_user` owns the folder.
+3. **AppArmor**: If using AppArmor, check if it’s restricting access.
+4. **Shell Script**: Make sure the `restricted_shell.sh` script is executable and correct.
+
+After performing these steps, the `restricted_user` should have access to the designated folder.
